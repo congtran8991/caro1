@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useContext } from 'react'
 import { Modal, Fade, Box, Typography, Backdrop, Button } from '@mui/material'
-import { useLocation, Redirect, useParams,useHistory } from 'react-router-dom'
+import { useLocation, useParams,useHistory } from 'react-router-dom'
 import { DataContext } from '../Context/userContext'
 import { checkWinNgang } from '../CheckWin/checkWinNgang'
 import { checkWinDoc } from '../CheckWin/checkWinDoc'
@@ -31,7 +31,9 @@ function Room() {
     const ORef = useRef<XO_arrRef[]>([])
     const XRef = useRef<XO_arrRef[]>([])
     const [checkEndGame, setCheckEndGame] = useState<boolean>(false)
-    const [checkTurn,setCheckTurn] = useState<string>('X')
+    const [checkTurn, setCheckTurn] = useState<string>('X')
+    const [checkX, setCheckX] = useState<boolean>(true)
+    const [checkUserTurn,setCheckUserTurn] = useState<boolean>(true)
     const handleClose = () => setCheckEndGame(false)
     useEffect(() => {
         socketIO.emit('send_list_room')
@@ -47,25 +49,36 @@ function Room() {
         })
     }, [])
 
-    // useEffect(() => {
-    //     socketIO.on('receive_room', (data: any) =>
-    //     {
-    //         history.push({
-    //             pathname: `/${data}`,
-    //             state: { numberRoom: data,numberUser:5 },
-    //         })
-    //     })
-    // }, [])
-    
     useEffect(() =>
     {
+        // if (XRef.current.length !== 0)
+        // {
+        
         socketIO.emit('search_room', param.id)
+        // }
         socketIO.on('receive_search_room', (data: any) =>
         {
+            // console.log(data.userOut);
+            // console.log((XRef.current + ORef.current));
+            
             setCheckTurn(data.turn)
             XRef.current = data.user1.dataWin
             ORef.current = data.user2.dataWin
+            console.log(turn);
+            console.log("scscs",data.userOut === "X" && ((XRef.current.length + ORef.current.length) % 2 == 1));
             
+            if (data.userOut === "X" && (XRef.current.length + ORef.current.length) % 2 == 1)
+            {
+                socketIO.emit('play_tick', { check: true, dataRoom: param.id })
+                setCheckUserTurn(false)
+            } 
+
+            if (data.userOut === "O" && (XRef.current.length + ORef.current.length) % 2 == 0)
+            {
+                socketIO.emit('play_tick', { check: true, dataRoom: param.id })
+                setCheckUserTurn(false)
+            } 
+
             if (data.dataTable.length !== 0) {
                 setArrayTable(data.dataTable)
             }
@@ -77,9 +90,41 @@ function Room() {
             }
         })
     }, [])
+
+    useEffect(() =>
+    {
+        socketIO.on('receive_first_search', (data:string) =>
+        {
+            setCheckTurn('X')
+            setCheckX(false)
+            setCheckUserTurn(false)
+      })  
+    }, [])
+
+    useEffect(() =>
+    {
+        // console.log(!checkInturn && turn === 'O');
+        // console.log(checkTurn);
+        
+        // if ((XRef.current.length + ORef.current.length) % 2 === 0 && checkTurn === 'O')
+        // {
+        //     console.log(checkTurn);
+            
+        //     socketIO.emit('play_tick', { check: true, dataRoom: param.id })
+        //     setCheckUserTurn(false)
+        // }
+        socketIO.on('receive_play_tick', (data:boolean) =>
+        {
+            console.log("vdvd",data);
+            
+            setCheckUserTurn(data)
+        })
+    },[])
+    console.log('turn',checkUserTurn ? "lượt mình": "lượt nta");
     
     useEffect(() => {
-        socketIO.on('receive_play_check', (data: any) => {
+        socketIO.on('receive_play_check', (data: any) =>
+        {
             if (data.turn === 'O') {
                 checkWin(data.user1.dataWin, 'X')
                 setCheckTurn('O')
@@ -117,10 +162,11 @@ function Room() {
             x: indexRow,
             y: indexColumn,
         }
-        if (checkInturn && turn === 'X' && checkDuplicateTick(coordinates))
+        if (checkInturn && turn === 'X' && checkDuplicateTick(coordinates) && checkTurn==="X" && checkX === true)
         {
             tamArrTable[indexRow][indexColumn].checkClick = 'X'
             setCheckInturn(false)
+            setCheckTurn('O')
             XRef.current.push(coordinates)
             dataSocket = {
                 dataTable: [...tamArrTable],
@@ -129,6 +175,8 @@ function Room() {
                 dataWin: XRef.current,
             }
             await socketIO.emit('send_play_check', dataSocket)
+            await socketIO.emit('play_tick', { check: true, dataRoom: state.numberRoom })
+            setCheckUserTurn(false)
             setArrayTable([...tamArrTable])
             checkWin(XRef.current, 'X')
             setShowMessage(true)
@@ -136,6 +184,7 @@ function Room() {
         {
             tamArrTable[indexRow][indexColumn].checkClick = 'O'
             setCheckInturn(true)
+            setCheckTurn('X')
             ORef.current.push(coordinates)
             dataSocket = {
                 dataTable: [...tamArrTable],
@@ -144,6 +193,8 @@ function Room() {
                 dataWin: ORef.current,
             }
             await socketIO.emit('send_play_check', dataSocket)
+            await socketIO.emit('play_tick', { check: true, dataRoom: state.numberRoom })
+            setCheckUserTurn(false)
             setArrayTable([...tamArrTable])
             checkWin(ORef.current, 'O')
             setShowMessage(true)
@@ -261,26 +312,42 @@ function Room() {
         )
     }
     return (
+        <>
         <div className='flex h-100 justify-content-between align-items-center'>
             <div>
                 <div className='text-center'>
                     <span style={{...styleTextXy,color:'blue',opacity:(checkTurn === 'X') ? 1 : 0.2}}>X</span>
                 </div>
-                <img style={{paddingTop:'20px'}} src="https://kenh14cdn.com/203336854389633024/2020/12/31/unnamed-16094336835851157908418.jpg" width={300} alt="" />
-            {/* <div className='text-center'>Lượt của bạn</div> */}
+                    <img style={{ paddingTop: '20px' }} src="https://kenh14cdn.com/203336854389633024/2020/12/31/unnamed-16094336835851157908418.jpg" width={300} alt="" />
+                    <div>Lượt của bạn</div>
             </div>
-            {modalMessage()}
-            <table className='borderCollapse'>
-                <tbody>{createTable()}</tbody>
+                {modalMessage()}
+                <div>
+                    <div className='text-center'  onClick={async () => {
+                                    await socketIO.emit('back')
+                                    history.push({
+                                        pathname: `/`,
+                                    })
+                                }}>Rời phòng</div>
+                    <br></br>
+                    <div className='text-center'>{checkTurn === "X" ? "Lượt của X" : "lượt của 0"}</div>
+                    <div className='text-center'>Phòng: {param.id}</div>
+                <table className='borderCollapse'>
+                <tbody>
+                    {createTable()}
+                </tbody>
             </table>
+                </div>
             <div>
                 <div className='text-center'>
                    <span style={{...styleTextXy,color:'brown',opacity:(checkTurn !== 'X') ? 1 : 0.2}}>0</span>
                 </div>
-                <img style={{ paddingTop: '20px' }} src="https://kenh14cdn.com/203336854389633024/2020/12/31/unnamed-16094336835851157908418.jpg" width={300} alt="" />
-           {/* <div className='text-center'>Lượt của đối thủ</div> */}
+                    <img style={{ paddingTop: '20px' }} src="https://kenh14cdn.com/203336854389633024/2020/12/31/unnamed-16094336835851157908418.jpg" width={300} alt="" />
+                    <div>Lượt của bạn</div>
             </div>
         </div>
+           
+        </>
     )
 }
 

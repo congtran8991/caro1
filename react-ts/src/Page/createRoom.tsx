@@ -13,27 +13,33 @@ function CreateRoom() {
     const [listRoom, setListRoom] = useState<listRoomKey[]>([])
     const [searched, setSearched] = useState<string>('')
     let history = useHistory()
-    useEffect(() => {
-        socketIO.on('receive_room', (data: any) =>
-        {
-            history.push({
-                pathname: `/${data}`,
-                state: { numberRoom: data,checkSearch:'nosearch' },
-            })
-        })
-    }, [])
+    // useEffect(() => {
+    //     socketIO.on('receive_room', (data: any) =>
+    //     {
+    //         console.log(data);
+            
+    //         history.push({
+    //             pathname: `/${data}`,
+    //             state: { numberRoom: data,checkSearch:'nosearch' },
+    //         })
+    //     })
+    // }, [])
     useEffect(() => {
         socketIO.emit('send_list_room')
     }, [])
     useEffect(() => {
-        socketIO.on('list_room', (data: any) => {
+        socketIO.on('list_room', (data: any) =>
+        {
             setListRoom(data) // cần fix
         })
     }, [])
     useEffect(() => {
         socketIO.on('reveive_back', (data: any) => {
             if (window.performance) {
-                if (performance.navigation.type == 1) {
+                if (performance.navigation.type == 1)
+                {
+                    console.log(data);
+                    
                      window.location.reload()
                 }
             }
@@ -61,7 +67,12 @@ function CreateRoom() {
                         variant='contained'
                         onClick={async () => {
                             let numberRoom = String(Math.floor(Math.random() * 100000))
-                            await socketIO.emit('create_room', numberRoom)
+                            // await socketIO.emit('create_room', numberRoom)
+                            history.push({
+                                pathname: `/${numberRoom}`,
+                                state: { numberRoom: numberRoom,checkSearch:'nosearch' },
+                            })
+                            // await socketIO.emit('create_room', numberRoom)
                         }}>
                         <div style={{ padding: '0 10px' }}>Tạo bàn mới</div>
                     </Button>
@@ -84,7 +95,9 @@ function CreateRoom() {
                                         key={index}
                                         sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                                         onClick={async (e) => {
-                                            if (row.numberUser < 2) {
+                                            if (row.numberUser < 2)
+                                            {
+                                                // socketIO.emit('search_room', row.nameRoom)
                                                 history.push({
                                                     pathname: `/${row.nameRoom}`,
                                                     state: { numberRoom: row.nameRoom, checkSearch: 'search',numberUser:row.numberUser },
@@ -111,9 +124,3 @@ function CreateRoom() {
 
 export default CreateRoom
 
-const styles: any = {
-    border: '1px solid #dddddd',
-    textAlign: 'center',
-    cursor: 'pointer',
-    width: '100px',
-}

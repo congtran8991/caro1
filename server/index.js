@@ -28,9 +28,9 @@ const port = process.env.PORT || 3002
 const server = app.listen(port, () => {
   console.log("Server Running on Port 3002...");
 });
-app.get("/*", (req, res) => {
-  res.sendFile(path.join(__dirname + "/build/index.html"));
-});
+// app.get("/*", (req, res) => {
+//   res.sendFile(path.join(__dirname + "/build/index.html"));
+// });
 io = socket(server);
 let listRoom = [];
 let list = {
@@ -41,9 +41,9 @@ let list = {
   user2: { name: "DANH", type: "O", id: "",dataWin:[]},
   userOut: "O",
 }
-let tamDataWin = []
 io.on("connection",async (socket) => {
-  socket.on("create_room",async (dataRoom) => {
+  socket.on("create_room", async (dataRoom) => {
+    console.log(getActiveRooms(io));
     socket.join(dataRoom)
     await io.emit("list_room", getActiveRooms(io))
     await socket.emit("receive_room", dataRoom)
@@ -59,8 +59,21 @@ io.on("connection",async (socket) => {
   })
   socket.on("search_room", async (dataRoom) => {
     let checkListRoom = io.sockets.adapter.rooms.get(dataRoom)
+    if (checkListRoom?.size === undefined) {
+      socket.join(dataRoom)
+      io.emit("list_room", getActiveRooms(io))
+      list = {
+        dataTable: [],
+        turn: "X",
+        room: dataRoom,
+        user1: { name: "CONG", type: "X", id: socket.id,dataWin:[] },
+        user2: { name: "DANH", type: "O", id: "",dataWin:[] },
+        userOut: "O",
+      }
+    }
+    console.log(list.dataTable.length);
     if (list.dataTable.length != 0) {
-      if (checkListRoom?.size < 2 || checkListRoom?.size===undefined) {
+      if (checkListRoom?.size < 2 || checkListRoom?.size === undefined) {
         await socket.join(dataRoom)
       list.room = dataRoom
       if (list.user1.id === "") {
@@ -74,7 +87,15 @@ io.on("connection",async (socket) => {
       } else {
         await socket.emit("no_search_room",true)
       }
+    } else {
+      await socket.join(dataRoom)
+      if (checkListRoom?.size !== undefined) {
+        await socket.emit("receive_first_search","O")
+      }
     }
+  })
+  socket.on("play_tick", (data) => {
+    socket.to(data.dataRoom).emit("receive_play_tick",data.check)
   })
   socket.on("send_play_check", async (data) => {
     if (data.turn === "X") {
@@ -85,7 +106,7 @@ io.on("connection",async (socket) => {
     list.dataTable = data.dataTable
     list.turn = data.turn == "X" ? "O" : "X"
     list.room = data.dataRoom
-    await socket.to(data.dataRoom).emit("receive_play_check", list)
+    socket.to(data.dataRoom).emit("receive_play_check", list)
   })
   socket.on("new_game", (data) => {
     list.dataTable = []
