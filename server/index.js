@@ -8,9 +8,9 @@ let path = require("path");
 const { json } = require("express");
 const port = process.env.PORT || 3002;
 
-app.listen (port, () => {
-  console.log ('Máy chủ hoạt động!');
-});
+// app.listen (port, () => {
+//   console.log ('Máy chủ hoạt động!');
+// });
 // app.use(function(req, res, next) {
 //     console.log("đvdv");
 //     // Website you wish to allow to connect
